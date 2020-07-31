@@ -142,6 +142,10 @@ class ChargeCalculationError(MessageException):
     pass
 
 
+class ConformerGenerationError(MessageException):
+    """Conformer generation failed"""
+
+
 #=============================================================================================
 # TOOLKIT UTILITY DECORATORS
 #=============================================================================================
@@ -1785,8 +1789,10 @@ class OpenEyeToolkitWrapper(ToolkitWrapper):
             if new_status is False:
                 raise Exception("OpenEye Omega conformer generation failed")
 
-
         molecule2 = self.from_openeye(oemol, allow_undefined_stereo=True)
+
+        if not molecule2._conformers:
+            raise ConformerGenerationError('Failed to generate any conformers with RDKit')
 
         if clear_existing:
             molecule._conformers = list()
@@ -2877,6 +2883,9 @@ class RDKitToolkitWrapper(ToolkitWrapper):
             #params=AllChem.ETKDG()
         )
         molecule2 = self.from_rdkit(rdmol, allow_undefined_stereo=True)
+
+        if not molecule2._conformers:
+            raise ConformerGenerationError('Failed to generate any conformers with RDKit')
 
         if clear_existing:
             molecule._conformers = list()
