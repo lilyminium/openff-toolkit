@@ -4913,11 +4913,28 @@ class ToolkitRegistry:
 # GLOBAL TOOLKIT REGISTRY
 # =============================================================================================
 
-# Create global toolkit registry, where all available toolkits are registered
-# TODO: Should this be all lowercase since it's not a constant?
-GLOBAL_TOOLKIT_REGISTRY = ToolkitRegistry(
-    register_imported_toolkit_wrappers=True, exception_if_unavailable=False
-)
+
+class GlobalToolkitRegistry:
+    """Singleton object representing a default toolkit registry"""
+
+    instance = None
+
+    def __new__(cls):
+        if cls.instance is None:
+            cls.instance = ToolkitRegistry(
+                toolkit_precedence=[
+                    OpenEyeToolkitWrapper,
+                    RDKitToolkitWrapper,
+                    AmberToolsToolkitWrapper,
+                    BuiltInToolkitWrapper,
+                ],
+            )
+        return cls.instance
+
+
+# Store the only instance (there can be only one) of this class
+# into a (global-like) variable for API compatibility
+GLOBAL_TOOLKIT_REGISTRY = GlobalToolkitRegistry()
 
 # =============================================================================================
 # SET GLOBAL TOOLKIT-AVAIABLE VARIABLES

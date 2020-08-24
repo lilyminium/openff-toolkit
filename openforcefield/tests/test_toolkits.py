@@ -35,6 +35,7 @@ from openforcefield.utils.toolkits import (
     BuiltInToolkitWrapper,
     ChargeMethodUnavailableError,
     GAFFAtomTypeWarning,
+    GlobalToolkitRegistry,
     IncorrectNumConformersError,
     IncorrectNumConformersWarning,
     InvalidToolkitError,
@@ -3363,6 +3364,10 @@ class TestToolkitRegistry:
         assert len(GLOBAL_TOOLKIT_REGISTRY.registered_toolkits) == num_toolkits - 1
 
         GLOBAL_TOOLKIT_REGISTRY = deepcopy(global_registry_copy)
+
+    def test_global_toolkit_registry_singleton(self):
+        """Ensure GlobalToolkitRegistry behaves as a singleton"""
+        assert GlobalToolkitRegistry() == GlobalToolkitRegistry()
 
     def test_register_builtintoolkit(self):
         """Test creation of toolkit registry with Built-in toolkit"""
