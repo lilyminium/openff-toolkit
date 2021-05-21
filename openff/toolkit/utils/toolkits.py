@@ -2688,9 +2688,8 @@ class OpenEyeToolkitWrapper(ToolkitWrapper):
         # Build list of matches
         # TODO: The MoleculeImage mapping should preserve ordering of template molecule for equivalent atoms
         #       and speed matching for larger molecules.
-        unique = False  # We require all matches, not just one of each kind
+        unique = True  # We require all matches, not just one of each kind
         substructure_search = OESubSearch(qmol)
-        substructure_search.SetMaxMatches(0)
         oechem.OEPrepareSearch(mol, substructure_search)
         matches = list()
         for match in substructure_search.Match(mol, unique):
@@ -4556,7 +4555,7 @@ class RDKitToolkitWrapper(ToolkitWrapper):
         else:
             # Only the OEAroModel_MDL is supported for now
             raise ValueError("Unknown aromaticity model: {}".aromaticity_models)
-
+        
         # Set up query.
         qmol = Chem.MolFromSmarts(smirks)  # cannot catch the error
         if qmol is None:
@@ -4579,7 +4578,7 @@ class RDKitToolkitWrapper(ToolkitWrapper):
         # since the C++ signature is a uint
         max_matches = np.iinfo(np.uintc).max
         for match in rdmol.GetSubstructMatches(
-            qmol, uniquify=False, maxMatches=max_matches, useChirality=True
+            qmol, uniquify=True, maxMatches=max_matches, useChirality=True
         ):
             mas = [match[x] for x in map_list]
             matches.append(tuple(mas))
