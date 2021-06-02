@@ -63,7 +63,7 @@ from openff.toolkit.topology import ImproperDict, SortedDict, Topology, ValenceD
 from openff.toolkit.topology.molecule import Molecule
 from openff.toolkit.typing.chemistry import ChemicalEnvironment
 from openff.toolkit.utils.collections import ValidatedDict, ValidatedList
-from openff.toolkit.utils.toolkits import GLOBAL_TOOLKIT_REGISTRY
+from openff.toolkit.utils.toolkits import * #GLOBAL_TOOLKIT_REGISTRY
 from openff.toolkit.utils.utils import (
     IncompatibleUnitError,
     MessageException,
@@ -2257,7 +2257,14 @@ class ParameterHandler(_ParameterAttributeHandler):
             matches_for_this_type = {}
 
             for environment_match in entity.chemical_environment_matches(
-                parameter_type.smirks
+                parameter_type.smirks,
+                toolkit_registry=ToolkitRegistry(
+                    toolkit_precedence=[
+                        RDKitToolkitWrapper,
+                        OpenEyeToolkitWrapper,
+                        AmberToolsToolkitWrapper,
+                        BuiltInToolkitWrapper,],
+                    exception_if_unavailable=False,)
             ):
                 # Update the matches for this parameter type.
                 handler_match = self._Match(parameter_type, environment_match)
@@ -5417,7 +5424,16 @@ class VirtualSiteHandler(_NonbondedHandler):
 
             matches_for_this_type = defaultdict(list)
 
-            ce_matches = entity.chemical_environment_matches(parameter_type.smirks)
+            ce_matches = entity.chemical_environment_matches(
+                parameter_type.smirks,
+                toolkit_registry=ToolkitRegistry(
+                    toolkit_precedence=[
+                        RDKitToolkitWrapper,
+                        OpenEyeToolkitWrapper,
+                        AmberToolsToolkitWrapper,
+                        BuiltInToolkitWrapper,],
+                    exception_if_unavailable=False,)
+                )
 
             # Split the groups into unique sets i.e. 13,14 and 13,15
             # Needed for vsites, where a vsite could match C-H with for a CH2 group

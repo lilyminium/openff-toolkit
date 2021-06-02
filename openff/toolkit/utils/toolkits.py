@@ -2690,6 +2690,7 @@ class OpenEyeToolkitWrapper(ToolkitWrapper):
         #       and speed matching for larger molecules.
         unique = True  # We require all matches, not just one of each kind
         substructure_search = OESubSearch(qmol)
+        substructure_search.SetMaxMatches(1000)
         oechem.OEPrepareSearch(mol, substructure_search)
         matches = list()
         for match in substructure_search.Match(mol, unique):
@@ -4576,7 +4577,8 @@ class RDKitToolkitWrapper(ToolkitWrapper):
 
         # choose the largest unsigned int without overflow
         # since the C++ signature is a uint
-        max_matches = np.iinfo(np.uintc).max
+        # max_matches = np.iinfo(np.uintc).max
+        max_matches = 1000
         for match in rdmol.GetSubstructMatches(
             qmol, uniquify=True, maxMatches=max_matches, useChirality=True
         ):
