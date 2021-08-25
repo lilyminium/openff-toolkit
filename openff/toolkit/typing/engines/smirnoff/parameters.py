@@ -3780,6 +3780,30 @@ class ElectrostaticsHandler(_NonbondedHandler):
         force = super().create_force(system, topology, **kwargs)
 
         # See if each molecule should have charges assigned by the charge_from_molecules kwarg
+        # TODO: REMOVE
+        # Ok, I spent an hour on Evaluator docs, and I can't figure out how to
+        # alter openmm system creation
+        # We're going to have to do it here
+        # with good old environmental variables
+        import os
+        from rdkit.Chem import AllChem
+        if "OE_LICENSE" in os.environ:
+            if os.environ["ELF10"] == "false":
+                charge_mols = []
+                for ref_mol in topology.reference_molecules:
+                    # Ok, we need to minimize our conformer ourselves
+                    ref_mol.generate_conformers(n_conformers=1)
+                    rdmol = ref_mol.to_rdkit()
+                    AllChem.MMFFOptimizeMoleculeConfs(rdmol, numThreads=0,
+                                                    maxIters=1000)
+                    opt = type(ref_mol).from_rdkit(rdmol, allow_undefined_stereo=True)
+                    ref_mol._conformers = []
+                    for conformer in opt._conformers:
+                        ref_mol._add_conformer(conformer)
+                    ref_mol.assign_partial_charges("am1bcc", use_conformers=ref_mol.conformers)
+                    charge_mols.append(ref_mol)
+                kwargs["charge_from_molecules"] = charge_mols
+
         for ref_mol in topology.reference_molecules:
 
             # If charges were already assigned, skip this molecule
@@ -4113,11 +4137,22 @@ class ToolkitAM1BCCHandler(_NonbondedHandler):
 
             # If the molecule wasn't already assigned charge values, calculate them here
             toolkit_registry = kwargs.get("toolkit_registry", GLOBAL_TOOLKIT_REGISTRY)
+
+            # TODO: REMOVE
+            # Ok, I spent an hour on Evaluator docs, and I can't figure out how to
+            # alter openmm system creation
+            # We're going to have to do it here
+            # with good old environmental variables
+            import os
+            if os.environ["ELF10"] == "false":
+                charge_method = "am1bcc"
+            else:
+                charge_method = "am1bccelf10"
             try:
                 # We don't need to generate conformers here, since that will be done by default in
                 # compute_partial_charges with am1bcc if the use_conformers kwarg isn't defined
                 ref_mol.assign_partial_charges(
-                    partial_charge_method="am1bcc", toolkit_registry=toolkit_registry
+                    partial_charge_method=charge_method, toolkit_registry=toolkit_registry
                 )
             except Exception as e:
                 warnings.warn(str(e), Warning)
