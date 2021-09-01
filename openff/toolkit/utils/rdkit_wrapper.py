@@ -432,7 +432,7 @@ class RDKitToolkitWrapper(base_wrapper.ToolkitWrapper):
         # TODO: TDT file support
         return mols
 
-    def to_file_obj(self, molecule, file_obj, file_format):
+    def to_file_obj(self, molecule, file_obj, file_format, conformer_index=-1):
         """
         Writes an OpenFF Molecule to a file-like object
 
@@ -469,11 +469,11 @@ class RDKitToolkitWrapper(base_wrapper.ToolkitWrapper):
             rdmol = self.to_rdkit(molecule)
             writer = writer_func(file_obj)
             try:
-                writer.write(rdmol)
+                writer.write(rdmol, confId=conformer_index)
             finally:
                 writer.close()
 
-    def to_file(self, molecule, file_path, file_format):
+    def to_file(self, molecule, file_path, file_format, conformer_index=-1):
         """
         Writes an OpenFF Molecule to a file-like object
 
@@ -494,7 +494,8 @@ class RDKitToolkitWrapper(base_wrapper.ToolkitWrapper):
         # open a file object and pass to the object writer
         with open(file_path, "w") as file_obj:
             self.to_file_obj(
-                molecule=molecule, file_obj=file_obj, file_format=file_format
+                molecule=molecule, file_obj=file_obj,
+                file_format=file_format, conformer_index=conformer_index,
             )
 
     def enumerate_stereoisomers(

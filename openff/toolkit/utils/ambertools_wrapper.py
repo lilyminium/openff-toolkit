@@ -163,6 +163,12 @@ class AmberToolsToolkitWrapper(base_wrapper.ToolkitWrapper):
                 "max_confs": 0,
                 "rec_confs": 0,
             },
+            "am1bccelf10": {
+                "antechamber_keyword": "bcc",
+                "min_confs": 1,
+                "max_confs": None,
+                "rec_confs": 500,
+            },
         }
 
         if partial_charge_method not in SUPPORTED_CHARGE_METHODS:
@@ -209,78 +215,90 @@ class AmberToolsToolkitWrapper(base_wrapper.ToolkitWrapper):
                 "Antechamber not found, cannot run charge_mol()"
             )
 
-        # Compute charges
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with temporary_cd(tmpdir):
-                net_charge = mol_copy.total_charge / unit.elementary_charge
-                # Write out molecule in SDF format
-                # TODO: How should we handle multiple conformers?
-                self._rdkit_toolkit_wrapper.to_file(
-                    mol_copy, "molecule.sdf", file_format="sdf"
-                )
-                # Compute desired charges
-                # TODO: Add error handling if antechamber chokes
-                short_charge_method = charge_method["antechamber_keyword"]
-                subprocess.check_output(
-                    [
-                        "antechamber",
-                        "-i",
-                        "molecule.sdf",
-                        "-fi",
-                        "sdf",
-                        "-o",
-                        "charged.mol2",
-                        "-fo",
-                        "mol2",
-                        "-pf",
-                        "yes",
-                        "-dr",
-                        "n",
-                        "-c",
-                        short_charge_method,
-                        "-nc",
-                        str(net_charge),
-                    ]
-                )
-                # Write out just charges
-                subprocess.check_output(
-                    [
-                        "antechamber",
-                        "-dr",
-                        "n",
-                        "-i",
-                        "charged.mol2",
-                        "-fi",
-                        "mol2",
-                        "-o",
-                        "charges2.mol2",
-                        "-fo",
-                        "mol2",
-                        "-c",
-                        "wc",
-                        "-cf",
-                        "charges.txt",
-                        "-pf",
-                        "yes",
-                    ]
-                )
-                # Check to ensure charges were actually produced
-                if not os.path.exists("charges.txt"):
-                    # TODO: copy files into local directory to aid debugging?
-                    raise ChargeCalculationError(
-                        "Antechamber/sqm partial charge calculation failed on "
-                        "molecule {} (SMILES {})".format(
-                            molecule.name, molecule.to_smiles()
-                        )
+        def compute_charges(conformer_index=-1):
+            # Compute charges
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with temporary_cd(tmpdir):
+                    net_charge = mol_copy.total_charge / unit.elementary_charge
+                    # Write out molecule in SDF format
+                    # TODO: How should we handle multiple conformers?
+                    self._rdkit_toolkit_wrapper.to_file(
+                        mol_copy, "molecule.sdf", file_format="sdf", conformer_index=conformer_index
                     )
-                # Read the charges
-                with open("charges.txt", "r") as infile:
-                    contents = infile.read()
-                text_charges = contents.split()
-                charges = np.zeros([molecule.n_atoms], np.float64)
-                for index, token in enumerate(text_charges):
-                    charges[index] = float(token)
-                # TODO: Ensure that the atoms in charged.mol2 are in the same order as in molecule.sdf
+                    # Compute desired charges
+                    # TODO: Add error handling if antechamber chokes
+                    short_charge_method = charge_method["antechamber_keyword"]
+                    subprocess.check_output(
+                        [
+                            "antechamber",
+                            "-i",
+                            "molecule.sdf",
+                            "-fi",
+                            "sdf",
+                            "-o",
+                            "charged.mol2",
+                            "-fo",
+                            "mol2",
+                            "-pf",
+                            "yes",
+                            "-dr",
+                            "n",
+                            "-c",
+                            short_charge_method,
+                            "-nc",
+                            str(net_charge),
+                        ]
+                    )
+                    # Write out just charges
+                    subprocess.check_output(
+                        [
+                            "antechamber",
+                            "-dr",
+                            "n",
+                            "-i",
+                            "charged.mol2",
+                            "-fi",
+                            "mol2",
+                            "-o",
+                            "charges2.mol2",
+                            "-fo",
+                            "mol2",
+                            "-c",
+                            "wc",
+                            "-cf",
+                            "charges.txt",
+                            "-pf",
+                            "yes",
+                        ]
+                    )
+                    # Check to ensure charges were actually produced
+                    if not os.path.exists("charges.txt"):
+                        # TODO: copy files into local directory to aid debugging?
+                        raise ChargeCalculationError(
+                            "Antechamber/sqm partial charge calculation failed on "
+                            "molecule {} (SMILES {})".format(
+                                molecule.name, molecule.to_smiles()
+                            )
+                        )
+                    # Read the charges
+                    with open("charges.txt", "r") as infile:
+                        contents = infile.read()
+                    text_charges = contents.split()
+                    charges = np.zeros([molecule.n_atoms], np.float64)
+                    for index, token in enumerate(text_charges):
+                        charges[index] = float(token)
+                    # TODO: Ensure that the atoms in charged.mol2 are in the same order as in molecule.sdf
+                    return charges
+        
+        if not "elf10" in partial_charge_method:
+            charges = compute_charges()
+        else:
+            self._rdkit_toolkit_wrapper.apply_elf_conformer_selection(mol_copy)
+            all_charges = []
+            for conf_id in range(len(mol_copy.conformers)):
+                all_charges.append(compute_charges(conformer_index=conf_id))
+            charges = np.mean(all_charges, axis=0)
+
         charges = unit.Quantity(charges, unit.elementary_charge)
         molecule.partial_charges = charges
 
